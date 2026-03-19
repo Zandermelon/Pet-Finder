@@ -1,0 +1,12 @@
+venv/
+__pycache__/
+*.pyc
+*.pt
+
+# Images
+*.jpg
+*.jpeg
+*.png
+
+# Pickle files
+*.pkl
