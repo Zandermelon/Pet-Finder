@@ -29,22 +29,23 @@ def get_embedding(path):
 
     return embedding.squeeze().numpy()
 
-print("Processing Photos...")
-embeddings = []
+def build_profile():
+    print("Processing Photos...")
+    embeddings = []
 
-for filename in os.listdir("data/Fiona"):
-    if filename.lower().endswith((".jpg", ".jpeg", ".png")):
-        path = os.path.join("data/Fiona", filename)
-        print(f"Processing {filename}...")
-        embedding = get_embedding(path)
-        embeddings.append(embedding)
+    for filename in os.listdir("data/cropped_images"):
+        if filename.lower().endswith((".jpg", ".jpeg", ".png")):
+            path = os.path.join("data/cropped_images", filename)
+            print(f"Processing {filename}...")
+            embedding = get_embedding(path)
+            embeddings.append(embedding)
 
-print(f"Processed {len(embeddings)} photos")
+    print(f"Processed {len(embeddings)} photos")
 
-pet_profile = np.mean(embeddings, axis=0)
-print(f"Fiona's profile shape: {pet_profile.shape}")
+    pet_profile = np.mean(embeddings, axis=0)
+    print(f"Fiona's profile shape: {pet_profile.shape}")
 
-with open("data/profiles/fiona_profile.pkl", "wb") as f:
-    pickle.dump(pet_profile, f)
+    with open("data/profiles/fiona_profile.pkl", "wb") as f:
+        pickle.dump(pet_profile, f)
 
-print("Done! Fiona's profile saved to fiona_profile.pkl")
+    print("Done! Fiona's profile saved to fiona_profile.pkl")
