@@ -45,6 +45,8 @@ def build_profile():
     pet_profile = np.mean(embeddings, axis=0)
     print(f"Fiona's profile shape: {pet_profile.shape}")
 
+    os.makedirs("data/profiles", exist_ok=True)
+
     with open("data/profiles/fiona_profile.pkl", "wb") as f:
         pickle.dump(pet_profile, f)
 
