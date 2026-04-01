@@ -30,10 +30,10 @@ def match(image_path, threshold=0.7):
         print(f"Animal {i+1}: similarity score = {score:.4f}")
 
         if score >= threshold:
-            print(f"✓ Animal {i+1} is Fiona! (score: {score:.4f})")
+            print(f"Animal {i+1} is Fiona! (score: {score:.4f})")
             return True
 
-    print("✗ No match found — not Fiona")
+    print("No match found — not Fiona")
     return False
 
 if __name__ == "__main__":
