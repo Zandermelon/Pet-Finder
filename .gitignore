@@ -1,16 +1,19 @@
+# Virtual environment
 venv/
+env/
+
+# Python cache
 __pycache__/
 *.pyc
-*.pt
 
-# Images
+# Models
+*.pt
+*.pth
+
+# Data / serialized files
+*.pkl
+
+# Images (optional — ONLY ignore if not needed in repo)
 *.jpg
 *.jpeg
 *.png
-
-# Pickle files
-*.pkl
-
-# models
-*.pt
-*.pth
