@@ -96,17 +96,3 @@ def scan_video(video_path, check_every_seconds=3):
     cap.release()
     print(f"\nScan complete! Found Fiona in {matches_found} frames")
 
-if __name__ == "__main__":
-    print("=== Pet Finder Scanner ===")
-    print("1. Scan webcam")
-    print("2. Scan video file")
-
-    choice = input("Enter 1 or 2: ")
-
-    if choice == "1":
-        scan_webcam(check_every_seconds=3)
-    elif choice == "2":
-        video_path = input("Enter the path to your video file: ")
-        scan_video(video_path, check_every_seconds=3)
-    else:
-        print("Invalid choice!")
