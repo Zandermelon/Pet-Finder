@@ -20,13 +20,10 @@ transform = transforms.Compose([
     )
 ])
 
-def get_embedding(path):
-    image = Image.open(path).convert("RGB")
+def get_embedding(image):
     tensor = transform(image).unsqueeze(0)
-
     with torch.no_grad():
         embedding = model(tensor)
-
     return embedding.squeeze().numpy()
 
 def build_profile():
