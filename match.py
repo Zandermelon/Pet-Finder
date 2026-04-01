@@ -39,10 +39,10 @@ def match(image_path, threshold=70):  # threshold is now a percentage
         print(f"Animal {i+1}: {confidence}% confidence it's Fiona")
 
         if confidence >= threshold:
-            print(f"✓ Fiona found! ({confidence}% confident)")
+            print(f"Fiona found! ({confidence}% confident)")
             return True
 
-    print("✗ Not Fiona")
+    print("Not Fiona")
     return False
 
 if __name__ == "__main__":

@@ -35,7 +35,7 @@ def scan_webcam(check_every_seconds=3):
             image = convert_frame(frame)
             image.save("temp_frame.jpg")
 
-            found = match("temp_frame.jpg")
+            found = match("temp_frame.jpg", threshold=70)
 
             if found:
                 print("FIONA SPOTTED ON WEBCAM!")
