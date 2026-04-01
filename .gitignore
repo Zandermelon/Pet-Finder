@@ -8,7 +8,6 @@ __pycache__/
 
 # Models
 *.pt
-*.pth
 
 # Data / serialized files
 *.pkl
