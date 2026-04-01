@@ -12,4 +12,5 @@ __pycache__/
 *.pkl
 
 # models
-*yolov8n.pt
+*.pt
+*.pth
