@@ -1,5 +1,4 @@
 import torch
-import torch.nn as nn
 import numpy as np
 import os
 import pickle
@@ -16,8 +15,8 @@ transform = transforms.Compose([
     )
 ])
 
-# Load the trained model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 model = PetEmbedder().to(device)
 model.load_state_dict(torch.load("data/models/pet_embedder.pth"))
 model.eval()
@@ -30,7 +29,7 @@ def get_embedding(image):
     return embedding.squeeze().cpu().numpy()
 
 def build_profile():
-    print("Processing photos...")
+    print("Building Fiona's profile...")
     embeddings = []
 
     for filename in os.listdir("data/cropped_fiona"):
@@ -45,7 +44,6 @@ def build_profile():
 
     pet_profile = np.mean(embeddings, axis=0)
     pet_profile = pet_profile / np.linalg.norm(pet_profile)
-    print(f"Profile shape: {pet_profile.shape}")
 
     os.makedirs("data/profiles", exist_ok=True)
 
