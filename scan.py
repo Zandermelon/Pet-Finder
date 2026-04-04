@@ -10,7 +10,7 @@ def convert_frame(frame):
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     return Image.fromarray(frame_rgb)
 
-def scan_webcam(check_every_seconds=3, threshold=60):
+def scan_webcam(check_every_seconds=3, threshold=60, required_streak=3):
     print("Starting webcam scan...")
     print("Press Q to quit")
 
@@ -21,6 +21,7 @@ def scan_webcam(check_every_seconds=3, threshold=60):
         return
 
     last_check = 0
+    consecutive_matches = 0
 
     try:
         while True:
@@ -42,11 +43,20 @@ def scan_webcam(check_every_seconds=3, threshold=60):
                 found = match("temp_frame.jpg", threshold=threshold)
 
                 if found:
-                    timestamp_str = time.strftime('%Y%m%d_%H%M%S')
-                    save_path = f"data/spotted/webcam_{timestamp_str}.jpg"
-                    cv2.imwrite(save_path, frame)
-                    print(f"TARGET SPOTTED ON WEBCAM!")
-                    print(f"Frame saved to {save_path}")
+                    consecutive_matches += 1
+                    print(f"Match streak: {consecutive_matches}/{required_streak}")
+
+                    if consecutive_matches >= required_streak:
+                        timestamp_str = time.strftime('%Y%m%d_%H%M%S')
+                        save_path = f"data/spotted/webcam_{timestamp_str}.jpg"
+                        cv2.imwrite(save_path, frame)
+                        print(f"TARGET SPOTTED!")
+                        print(f"Frame saved to {save_path}")
+                        consecutive_matches = 0
+                else:
+                    if consecutive_matches > 0:
+                        print(f"Streak broken — resetting ({consecutive_matches} matches lost)")
+                    consecutive_matches = 0
 
                 last_check = current_time
 
@@ -62,7 +72,7 @@ def scan_webcam(check_every_seconds=3, threshold=60):
             print("Cleaned up temp files")
 
 
-def scan_video(video_path, check_every_seconds=3, threshold=60):
+def scan_video(video_path, check_every_seconds=3, threshold=60, required_streak=2):
     print(f"Scanning video: {video_path}")
 
     cap = cv2.VideoCapture(video_path)
@@ -85,6 +95,7 @@ def scan_video(video_path, check_every_seconds=3, threshold=60):
     frames_to_skip = max(1, int(fps * check_every_seconds))
     frame_count = 0
     matches_found = 0
+    consecutive_matches = 0
 
     try:
         while True:
@@ -104,12 +115,21 @@ def scan_video(video_path, check_every_seconds=3, threshold=60):
                 found = match("temp_frame.jpg", threshold=threshold)
 
                 if found:
-                    timestamp_str = time.strftime('%Y%m%d_%H%M%S')
-                    save_path = f"data/spotted/video_{timestamp_str}_at_{timestamp:.0f}s.jpg"
-                    cv2.imwrite(save_path, frame)
-                    print(f"TARGET SPOTTED at {timestamp:.1f}s!")
-                    print(f"Frame saved to {save_path}")
-                    matches_found += 1
+                    consecutive_matches += 1
+                    print(f"Match streak: {consecutive_matches}/{required_streak}")
+
+                    if consecutive_matches >= required_streak:
+                        timestamp_str = time.strftime('%Y%m%d_%H%M%S')
+                        save_path = f"data/spotted/video_{timestamp_str}_at_{timestamp:.0f}s.jpg"
+                        cv2.imwrite(save_path, frame)
+                        print(f"TARGET SPOTTED at {timestamp:.1f}s!")
+                        print(f"Frame saved to {save_path}")
+                        matches_found += 1
+                        consecutive_matches = 0
+                else:
+                    if consecutive_matches > 0:
+                        print(f"Streak broken — resetting ({consecutive_matches} matches lost)")
+                    consecutive_matches = 0
 
             frame_count += 1
 
@@ -119,12 +139,4 @@ def scan_video(video_path, check_every_seconds=3, threshold=60):
             os.remove("temp_frame.jpg")
             print("Cleaned up temp files")
 
-    print(f"\nScan complete! Target spotted in {matches_found} frames")
-
-    cap.release()
-
-    # Clean up temp file
-    if os.path.exists("temp_frame.jpg"):
-        os.remove("temp_frame.jpg")
-
-    print(f"\nScan complete! Target spotted in {matches_found} frames")
+    print(f"\nScan complete! Target spotted in {matches_found} sightings")
