@@ -14,6 +14,14 @@ def crop_image(path):
     crops = []
     for box in boxes:
         x1, y1, x2, y2 = map(int, box.xyxy[0])
+
+        # add padding for more context
+        padding = 20
+        x1 = max(0, x1 - padding)
+        y1 = max(0, y1 - padding)
+        x2 = min(image.width, x2 + padding)
+        y2 = min(image.height, y2 + padding)
+                
         cropped = image.crop((x1, y1, x2, y2))
         crops.append(cropped)
     return crops
