@@ -9,14 +9,10 @@ from train import PetEmbedder
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
-    transforms.Normalize(
-        mean=[0.485, 0.456, 0.406],
-        std=[0.229, 0.224, 0.225]
-    )
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 model = PetEmbedder().to(device)
 model.load_state_dict(torch.load("data/models/pet_embedder.pth"))
 model.eval()
@@ -29,12 +25,12 @@ def get_embedding(image):
     return embedding.squeeze().cpu().numpy()
 
 def build_profile():
-    print("Building Fiona's profile...")
+    print("Building pet profile from target photos...")
     embeddings = []
 
-    for filename in os.listdir("data/cropped_fiona"):
+    for filename in os.listdir("data/target/cropped"):
         if filename.lower().endswith((".jpg", ".jpeg", ".png")):
-            path = os.path.join("data/cropped_fiona", filename)
+            path = os.path.join("data/target/cropped", filename)
             print(f"Processing {filename}...")
             image = Image.open(path).convert("RGB")
             embedding = get_embedding(image)
@@ -47,10 +43,10 @@ def build_profile():
 
     os.makedirs("data/profiles", exist_ok=True)
 
-    with open("data/profiles/fiona_profile.pkl", "wb") as f:
+    with open("data/profiles/pet_profile.pkl", "wb") as f:
         pickle.dump(pet_profile, f)
 
-    print("Done! Fiona's profile saved!")
+    print("Done! Profile saved to data/profiles/pet_profile.pkl")
 
 if __name__ == "__main__":
     build_profile()

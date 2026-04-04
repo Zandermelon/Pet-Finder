@@ -5,19 +5,22 @@ def main():
 
     while True:
         print("\n=== Pet Finder ===")
-        print("1. Crop photos")
+        print("1. Crop training photos")
         print("2. Train model")
         print("3. Build profile")
         print("4. Scan webcam")
         print("5. Scan video file")
         print("6. Quit")
 
-        choice = input("Enter 1, 2, 3, 4, 5 or 6: ")
+        choice = input("Enter 1-7: ")
 
         if choice == "1":
             from crop_animal import crop
-            crop("data/fiona", "data/cropped_fiona")
-            crop("data/other_cats", "data/cropped_other_cats")
+            crop("data/training/cats/same_cat",       "data/training/cats/same_cat_cropped")
+            crop("data/training/cats/different_cats", "data/training/cats/different_cats_cropped")
+            crop("data/training/dogs/same_dog",       "data/training/dogs/same_dog_cropped")
+            crop("data/training/dogs/different_dogs", "data/training/dogs/different_dogs_cropped")
+            crop("data/target/photos", "data/target/cropped")
 
         elif choice == "2":
             from train import train

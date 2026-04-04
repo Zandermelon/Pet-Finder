@@ -5,8 +5,6 @@ from ultralytics import YOLO
 model = YOLO("yolov8n.pt")
 print("YOLO loaded!")
 
-os.makedirs("data/cropped_images", exist_ok=True)
-
 def crop_image(path):
     results = model(path, classes=[15, 16], conf=0.4, verbose=False)
     boxes = results[0].boxes
@@ -32,7 +30,7 @@ def crop(input_folder, output_folder):
             crops = crop_image(path)
 
             if len(crops) == 0:
-                print(f"Skipping {filename} - No animal detected!")
+                print(f"Skipping {filename} — no animal detected")
                 skipped += 1
                 continue
 
@@ -40,10 +38,10 @@ def crop(input_folder, output_folder):
             ext = os.path.splitext(filename)[1]
 
             for i, crop_img in enumerate(crops):
-                save_path = os.path.join(output_folder, f"{name}_cat{i}{ext}")
+                save_path = os.path.join(output_folder, f"{name}_animal{i}{ext}")
                 crop_img.save(save_path)
                 print(f"Saved crop {i+1} of {len(crops)} from {filename}")
 
             saved += len(crops)
 
-    print(f"Done! Saved {saved} total crops, skipped {skipped} photos")
+    print(f"Done! Saved {saved} crops, skipped {skipped} photos")
