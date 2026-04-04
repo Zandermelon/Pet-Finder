@@ -3,29 +3,32 @@ import numpy as np
 import os
 import pickle
 from PIL import Image
-from torchvision import transforms
-from train import PetEmbedder
+from transformers import AutoImageProcessor, AutoModel
 
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-])
+print("Loading DINO model...")
+extractor = AutoImageProcessor.from_pretrained("facebook/dino-vitb8")
+model = AutoModel.from_pretrained("facebook/dino-vitb8")
+model.eval()
+print("DINO loaded!")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = PetEmbedder().to(device)
-model.load_state_dict(torch.load("data/models/pet_embedder.pth"))
-model.eval()
-print("Trained model loaded!")
+model = model.to(device)
 
 def get_embedding(image):
-    tensor = transform(image).unsqueeze(0).to(device)
+    inputs = extractor(images=image, return_tensors="pt")
+    inputs = {k: v.to(device) for k, v in inputs.items()}
+
     with torch.no_grad():
-        embedding = model(tensor)
+        outputs = model(**inputs)
+        # Use the CLS token — DINO's summary of the whole image
+        embedding = outputs.last_hidden_state[:, 0, :]
+
+    # Normalize
+    embedding = embedding / embedding.norm(dim=-1, keepdim=True)
     return embedding.squeeze().cpu().numpy()
 
 def build_profile():
-    print("Building pet profile from target photos...")
+    print("Building profile from target photos...")
     embeddings = []
 
     for filename in os.listdir("data/target/cropped"):
@@ -38,15 +41,17 @@ def build_profile():
 
     print(f"Processed {len(embeddings)} photos!")
 
-    pet_profile = np.mean(embeddings, axis=0)
-    pet_profile = pet_profile / np.linalg.norm(pet_profile)
+    # Save ALL embeddings instead of averaging
+    # This keeps all the information about how the pet looks
+    profile = np.array(embeddings)
+    print(f"Profile shape: {profile.shape}")  # should be (num_photos, 768)
 
     os.makedirs("data/profiles", exist_ok=True)
 
     with open("data/profiles/pet_profile.pkl", "wb") as f:
-        pickle.dump(pet_profile, f)
+        pickle.dump(profile, f)
 
-    print("Done! Profile saved to data/profiles/pet_profile.pkl")
+    print(f"Done! Profile saved with {len(embeddings)} reference fingerprints")
 
 if __name__ == "__main__":
     build_profile()
