@@ -20,7 +20,6 @@ def get_embedding(image):
 
     with torch.no_grad():
         outputs = model(**inputs)
-        # Use the CLS token — DINO's summary of the whole image
         embedding = outputs.last_hidden_state[:, 0, :]
 
     # Normalize
@@ -41,10 +40,9 @@ def build_profile():
 
     print(f"Processed {len(embeddings)} photos!")
 
-    # Save ALL embeddings instead of averaging
     # This keeps all the information about how the pet looks
     profile = np.array(embeddings)
-    print(f"Profile shape: {profile.shape}")  # should be (num_photos, 768)
+    print(f"Profile shape: {profile.shape}")  
 
     os.makedirs("data/profiles", exist_ok=True)
 
