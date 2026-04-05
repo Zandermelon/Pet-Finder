@@ -3,39 +3,39 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 
 export default function Scan() {
-  const [mode, setMode] = useState('video') // video or webcam
+  const [mode, setMode] = useState('video')
   const [file, setFile] = useState(null)
   const [step, setStep] = useState('upload')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [sightings, setSightings] = useState([])
-  const [profileExists, setProfileExists] = useState(null)
-  const [webcamActive, setWebcamActive] = useState(false)
+  const [, setWebcamActive] = useState(false)
   const [checkCount, setCheckCount] = useState(0)
   const [streak, setStreak] = useState(0)
+
+  const [sessionId, setSessionId] = useState(null)
+  const [pets, setPets] = useState([])
+  const [selectedPet, setSelectedPet] = useState(null) // { slug, name }
 
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
   const streamRef = useRef(null)
   const intervalRef = useRef(null)
 
-  const [sessionId, setSessionId] = useState(null)
-
-useEffect(() => {
+  useEffect(() => {
     const sid = localStorage.getItem('session_id')
     setSessionId(sid)
-
     if (sid) {
-      fetch(`http://localhost:8000/api/profile-status/${sid}`)
+      fetch(`http://localhost:8000/api/pets/${sid}`)
         .then(r => r.json())
-        .then(data => setProfileExists(data.profile_exists))
-        .catch(() => setProfileExists(false))
-    } else {
-      setProfileExists(false)
+        .then(data => {
+          setPets(data.pets || [])
+          if (data.pets && data.pets.length > 0) setSelectedPet(data.pets[0])
+        })
+        .catch(() => setPets([]))
     }
   }, [])
 
-  // Cleanup webcam on unmount
   useEffect(() => {
     return () => stopWebcam()
   }, [])
@@ -52,21 +52,20 @@ useEffect(() => {
   }
 
   async function handleScanVideo() {
-    if (!file) {
-      setError('Please select a video file first')
-      return
-    }
+    if (!file) { setError('Please select a video file first'); return }
+    if (!selectedPet) { setError('Please select a pet to scan for'); return }
+
     try {
       setStep('scanning')
-      setMessage('Scanning video for your pet...')
+      setMessage(`Scanning video for ${selectedPet.name}...`)
 
       const formData = new FormData()
       formData.append('file', file)
 
-      const res = await fetch(`http://localhost:8000/api/scan-video/${sessionId}`, {
-        method: 'POST',
-        body: formData
-      })
+      const res = await fetch(
+        `http://localhost:8000/api/scan-video/${sessionId}?pet_slug=${encodeURIComponent(selectedPet.slug)}`,
+        { method: 'POST', body: formData }
+      )
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail)
 
@@ -81,6 +80,7 @@ useEffect(() => {
   }
 
   async function startWebcam() {
+    if (!selectedPet) { setError('Please select a pet to scan for'); return }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true })
       streamRef.current = stream
@@ -89,15 +89,9 @@ useEffect(() => {
       setCheckCount(0)
       setSightings([])
 
-      // Wait for video element to mount after step change
       setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
-        }
-
-        intervalRef.current = setInterval(async () => {
-          await checkFrame()
-        }, 3000)
+        if (videoRef.current) videoRef.current.srcObject = stream
+        intervalRef.current = setInterval(async () => { await checkFrame() }, 3000)
       }, 100)
 
     } catch (err) {
@@ -116,36 +110,30 @@ useEffect(() => {
   }
 
   async function checkFrame() {
-    if (!videoRef.current || !canvasRef.current) return
+    if (!videoRef.current || !canvasRef.current || !selectedPet) return
 
-    // Draw current frame to canvas
     const canvas = canvasRef.current
     const video = videoRef.current
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
     canvas.getContext('2d').drawImage(video, 0, 0)
 
-    // Convert canvas to blob and send to backend
     canvas.toBlob(async (blob) => {
       if (!blob) return
-
       setCheckCount(c => c + 1)
 
       const formData = new FormData()
       formData.append('file', blob, 'frame.jpg')
 
       try {
-        const res = await fetch(`http://localhost:8000/api/match-image/${sessionId}`, {
-          method: 'POST',
-          body: formData
-        })
+        const res = await fetch(
+          `http://localhost:8000/api/match-image/${sessionId}?pet_slug=${encodeURIComponent(selectedPet.slug)}`,
+          { method: 'POST', body: formData }
+        )
         const data = await res.json()
-
         if (data.found) {
           setStreak(s => s + 1)
-          // Add the frame to sightings
-          const url = URL.createObjectURL(blob)
-          setSightings(prev => [url, ...prev])
+          setSightings(prev => [URL.createObjectURL(blob), ...prev])
         } else {
           setStreak(0)
         }
@@ -174,12 +162,31 @@ useEffect(() => {
         </div>
 
         {/* No profile warning */}
-        {profileExists === false && (
+        {pets.length === 0 && sessionId && (
           <div className="warning-box">
-            ⚠️ No pet profile found.{' '}
+            ⚠️ No pet profiles found.{' '}
             <Link href="/register" style={{ color: 'var(--accent)' }}>
               Register your pet first →
             </Link>
+          </div>
+        )}
+
+        {/* Pet selector */}
+        {pets.length > 0 && step === 'upload' && (
+          <div className="pet-selector">
+            <label className="input-label">Scanning for</label>
+            <div className="pet-tabs">
+              {pets.map(pet => (
+                <button
+                  key={pet.slug}
+                  className={`pet-tab ${selectedPet?.slug === pet.slug ? 'active' : ''}`}
+                  onClick={() => setSelectedPet(pet)}
+                >
+                  {pet.name}
+                </button>
+              ))}
+              <Link href="/register" className="pet-tab pet-tab-add">+ Add pet</Link>
+            </div>
           </div>
         )}
 
@@ -238,7 +245,7 @@ useEffect(() => {
             <button
               className="btn-primary btn-large btn-full"
               onClick={handleScanVideo}
-              disabled={!file || profileExists === false}
+              disabled={!file || pets.length === 0}
             >
               Start Scanning →
             </button>
@@ -263,7 +270,7 @@ useEffect(() => {
             <button
               className="btn-primary btn-large btn-full"
               onClick={startWebcam}
-              disabled={profileExists === false}
+              disabled={pets.length === 0}
             >
               Start Webcam Scan →
             </button>
@@ -274,22 +281,15 @@ useEffect(() => {
         {step === 'webcam' && (
           <div className="webcam-section">
             <div className="webcam-container">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="webcam-feed"
-              />
+              <video ref={videoRef} autoPlay playsInline muted className="webcam-feed"/>
               <div className="webcam-overlay">
                 <div className="webcam-status">
                   <span className="status-dot"/>
-                  Scanning live
+                  Scanning for {selectedPet?.name}
                 </div>
               </div>
             </div>
 
-            {/* Hidden canvas for frame capture */}
             <canvas ref={canvasRef} style={{ display: 'none' }}/>
 
             <div className="webcam-stats">
@@ -337,7 +337,7 @@ useEffect(() => {
             <h2>Scanning your footage...</h2>
             <p className="processing-sub">
               This may take a few minutes depending on video length.
-              The AI is checking every few seconds of footage for your pet.
+              The AI is checking every few seconds of footage for {selectedPet?.name}.
             </p>
           </div>
         )}
@@ -346,12 +346,10 @@ useEffect(() => {
         {step === 'done' && (
           <div>
             <div className="done-box">
-              <div className="done-icon">
-                {sightings.length > 0 ? '🎉' : '😔'}
-              </div>
+              <div className="done-icon">{sightings.length > 0 ? '🎉' : '😔'}</div>
               <h2>
                 {sightings.length > 0
-                  ? `Your pet was spotted ${sightings.length} time${sightings.length > 1 ? 's' : ''}!`
+                  ? `${selectedPet?.name} was spotted ${sightings.length} time${sightings.length > 1 ? 's' : ''}!`
                   : 'No sightings found'
                 }
               </h2>
@@ -381,9 +379,7 @@ useEffect(() => {
               >
                 Scan another video
               </button>
-              <Link href="/dashboard" className="btn-secondary">
-                View dashboard
-              </Link>
+              <Link href="/dashboard" className="btn-secondary">View dashboard</Link>
             </div>
           </div>
         )}
