@@ -20,7 +20,9 @@ export default function Register() {
     setError('')
   }
 
-  async function handleSubmit() {
+  const [sessionId, setSessionId] = useState(null)
+
+async function handleSubmit() {
     if (files.length < 10) {
       setError('Please upload at least 10 photos for better accuracy')
       return
@@ -39,15 +41,19 @@ export default function Register() {
         body: formData
       })
       const uploadData = await uploadRes.json()
-
       if (!uploadRes.ok) throw new Error(uploadData.detail)
+
+      // Save session ID
+      const sid = uploadData.session_id
+      setSessionId(sid)
+      localStorage.setItem('session_id', sid)  // save for other pages too
       setPhotoCount(uploadData.count)
 
-      // Step 2 — crop photos
+      // Step 2 — crop
       setStep('cropping')
       setMessage('Finding your pet in each photo...')
 
-      const cropRes = await fetch('http://localhost:8000/api/crop-photos', {
+      const cropRes = await fetch(`http://localhost:8000/api/crop-photos/${sid}`, {
         method: 'POST'
       })
       const cropData = await cropRes.json()
@@ -55,15 +61,14 @@ export default function Register() {
 
       // Step 3 — build profile
       setStep('building')
-      setMessage('Building your pet\'s unique profile...')
+      setMessage("Building your pet's unique profile...")
 
-      const profileRes = await fetch('http://localhost:8000/api/build-profile', {
+      const profileRes = await fetch(`http://localhost:8000/api/build-profile/${sid}`, {
         method: 'POST'
       })
       const profileData = await profileRes.json()
       if (!profileRes.ok) throw new Error(profileData.detail)
 
-      // Done!
       setStep('done')
       setMessage(profileData.message)
 

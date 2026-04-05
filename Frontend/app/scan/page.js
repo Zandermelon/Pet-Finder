@@ -19,11 +19,20 @@ export default function Scan() {
   const streamRef = useRef(null)
   const intervalRef = useRef(null)
 
-  useEffect(() => {
-    fetch('http://localhost:8000/api/profile-status')
-      .then(r => r.json())
-      .then(data => setProfileExists(data.profile_exists))
-      .catch(() => setProfileExists(false))
+  const [sessionId, setSessionId] = useState(null)
+
+useEffect(() => {
+    const sid = localStorage.getItem('session_id')
+    setSessionId(sid)
+
+    if (sid) {
+      fetch(`http://localhost:8000/api/profile-status/${sid}`)
+        .then(r => r.json())
+        .then(data => setProfileExists(data.profile_exists))
+        .catch(() => setProfileExists(false))
+    } else {
+      setProfileExists(false)
+    }
   }, [])
 
   // Cleanup webcam on unmount
@@ -54,7 +63,7 @@ export default function Scan() {
       const formData = new FormData()
       formData.append('file', file)
 
-      const res = await fetch('http://localhost:8000/api/scan-video', {
+      const res = await fetch(`http://localhost:8000/api/scan-video/${sessionId}`, {
         method: 'POST',
         body: formData
       })
@@ -126,7 +135,7 @@ export default function Scan() {
       formData.append('file', blob, 'frame.jpg')
 
       try {
-        const res = await fetch('http://localhost:8000/api/match-image', {
+        const res = await fetch(`http://localhost:8000/api/match-image/${sessionId}`, {
           method: 'POST',
           body: formData
         })
