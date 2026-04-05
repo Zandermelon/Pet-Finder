@@ -701,10 +701,57 @@ button.btn-secondary:hover {
 }
 
 /* Mode switcher */
-.mode-switcher {
+.mode-switcher,
+.mode-toggle {
   display: flex;
   gap: 0.75rem;
   margin-bottom: 2rem;
+}
+
+/* Pet selector */
+.pet-selector {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pet-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.pet-tab {
+  padding: 0.5rem 1.1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'DM Sans', sans-serif;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.pet-tab.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(245,166,35,0.08);
+}
+
+.pet-tab:hover:not(.active) {
+  border-color: rgba(255,255,255,0.2);
+  color: var(--text);
+}
+
+.pet-tab-add {
+  border-style: dashed;
+  color: var(--text-muted);
 }
 
 .input-group {
