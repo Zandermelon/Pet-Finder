@@ -101,6 +101,13 @@ def build_profile():
     try:
         from build_profile import build_profile
         build_profile()
+
+        # Clean up photos after profile is built
+        shutil.rmtree("data/target/photos")
+        shutil.rmtree("data/target/cropped")
+        os.makedirs("data/target/photos")
+        os.makedirs("data/target/cropped")
+
         return {
             "status": "success",
             "message": f"Profile built from {cropped_count} photos",
