@@ -131,11 +131,14 @@ def _extract_frames(video_path: str, photos_folder: str) -> int:
             os.remove(video_path)
 
 @app.post("/api/upload-profile-video")
-async def upload_profile_video(file: UploadFile = File(...)):
+async def upload_profile_video(file: UploadFile = File(...), session_id: str = Query(None)):
     if not file.filename.lower().endswith((".mp4", ".mov", ".avi", ".mkv", ".webm")):
         raise HTTPException(status_code=400, detail="Unsupported video format")
 
-    session_id = str(uuid.uuid4())
+    if session_id:
+        validate_session_id(session_id)
+    else:
+        session_id = str(uuid.uuid4())
     photos_folder = f"data/sessions/{session_id}/photos"
     os.makedirs(photos_folder, exist_ok=True)
 
@@ -166,8 +169,11 @@ async def upload_profile_video(file: UploadFile = File(...)):
 # Upload pet photos — returns a session_id
 # ─────────────────────────────────────────
 @app.post("/api/upload-photos")
-async def upload_photos(files: list[UploadFile] = File(...)):
-    session_id = str(uuid.uuid4())
+async def upload_photos(files: list[UploadFile] = File(...), session_id: str = Query(None)):
+    if session_id:
+        validate_session_id(session_id)
+    else:
+        session_id = str(uuid.uuid4())
 
     photos_folder = f"data/sessions/{session_id}/photos"
     os.makedirs(photos_folder, exist_ok=True)

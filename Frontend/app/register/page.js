@@ -61,7 +61,8 @@ export default function Register() {
         const formData = new FormData()
         formData.append('file', videoFile)
 
-        const uploadRes = await fetch('http://localhost:8000/api/upload-profile-video', {
+        const sidParam = sid ? `?session_id=${encodeURIComponent(sid)}` : ''
+        const uploadRes = await fetch(`http://localhost:8000/api/upload-profile-video${sidParam}`, {
           method: 'POST',
           body: formData
         })
@@ -82,7 +83,8 @@ export default function Register() {
         const formData = new FormData()
         files.forEach(f => formData.append('files', f))
 
-        const uploadRes = await fetch('http://localhost:8000/api/upload-photos', {
+        const sidParam = sid ? `?session_id=${encodeURIComponent(sid)}` : ''
+        const uploadRes = await fetch(`http://localhost:8000/api/upload-photos${sidParam}`, {
           method: 'POST',
           body: formData
         })

@@ -6,16 +6,17 @@ export default function Dashboard() {
   const [frames, setFrames] = useState([])
   const [loading, setLoading] = useState(true)
   const [sessionId, setSessionId] = useState(null)
-  const [profileExists, setProfileExists] = useState(false)
+  const [pets, setPets] = useState([])
 
   useEffect(() => {
     const sid = localStorage.getItem('session_id')
     setSessionId(sid)
 
     if (sid) {
-      fetch(`http://localhost:8000/api/profile-status/${sid}`)
+      fetch(`http://localhost:8000/api/pets/${sid}`)
         .then(r => r.json())
-        .then(data => setProfileExists(data.profile_exists))
+        .then(data => setPets(data.pets || []))
+        .catch(() => setPets([]))
 
       fetch(`http://localhost:8000/api/spotted-frames/${sid}`)
         .then(r => r.json())
@@ -76,9 +77,9 @@ export default function Dashboard() {
               <div className="dashboard-stat-icon">🧠</div>
               <div>
                 <div className="dashboard-stat-value">
-                  {profileExists ? 'Active' : 'Not set up'}
+                  {pets.length > 0 ? pets.length : 'None'}
                 </div>
-                <div className="dashboard-stat-label">Pet profile</div>
+                <div className="dashboard-stat-label">Registered pet{pets.length !== 1 ? 's' : ''}</div>
               </div>
             </div>
             <div className="dashboard-stat-card">
@@ -92,10 +93,29 @@ export default function Dashboard() {
               <div className="dashboard-stat-icon">🔍</div>
               <div>
                 <div className="dashboard-stat-value">
-                  {profileExists ? 'Ready' : 'Setup needed'}
+                  {pets.length > 0 ? 'Ready' : 'Setup needed'}
                 </div>
                 <div className="dashboard-stat-label">Scan status</div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Registered pets */}
+        {sessionId && pets.length > 0 && (
+          <div className="spotted-section">
+            <div className="spotted-header">
+              <h2 className="section-title" style={{ marginBottom: 0 }}>Registered pets</h2>
+              <Link href="/register" className="btn-secondary" style={{ fontSize: '0.85rem', padding: '0.5rem 1rem' }}>
+                + Add pet
+              </Link>
+            </div>
+            <div className="pet-tabs" style={{ marginTop: '1rem' }}>
+              {pets.map(pet => (
+                <div key={pet.slug} className="pet-tab active" style={{ cursor: 'default' }}>
+                  {pet.name}
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -120,10 +140,10 @@ export default function Dashboard() {
               <span className="action-arrow">→</span>
             </Link>
             <Link href="/register" className="action-card">
-              <div className="action-icon">🔄</div>
+              <div className="action-icon">➕</div>
               <div>
-                <div className="action-title">Update profile</div>
-                <div className="action-sub">Add more photos</div>
+                <div className="action-title">Add another pet</div>
+                <div className="action-sub">Register a new profile</div>
               </div>
               <span className="action-arrow">→</span>
             </Link>
