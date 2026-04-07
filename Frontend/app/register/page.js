@@ -3,9 +3,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 
 export default function Register() {
-  const [uploadMode, setUploadMode] = useState('photos') // 'photos' | 'video'
   const [files, setFiles] = useState([])
-  const [videoFile, setVideoFile] = useState(null)
+  const [videoFiles, setVideoFiles] = useState([])
   const [petName, setPetName] = useState('')
   const [step, setStep] = useState('upload')
   const [message, setMessage] = useState('')
@@ -17,27 +16,30 @@ export default function Register() {
   }
 
   function handleVideoChange(e) {
-    setVideoFile(e.target.files[0] || null)
+    setVideoFiles(prev => {
+      const existing = new Set(prev.map(f => f.name))
+      const added = Array.from(e.target.files).filter(f => !existing.has(f.name))
+      return [...prev, ...added]
+    })
     setError('')
   }
 
-  function handleDrop(e) {
+  function handlePhotoDrop(e) {
     e.preventDefault()
-    const dropped = Array.from(e.dataTransfer.files)
-    if (uploadMode === 'video') {
-      const vid = dropped.find(f => f.type.startsWith('video/'))
-      if (vid) { setVideoFile(vid); setError('') }
-    } else {
-      setFiles(dropped.filter(f => f.type.startsWith('image/')))
+    const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))
+    if (dropped.length) { setFiles(dropped); setError('') }
+  }
+
+  function handleVideoDrop(e) {
+    e.preventDefault()
+    const vids = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('video/'))
+    if (vids.length) {
+      setVideoFiles(prev => {
+        const existing = new Set(prev.map(f => f.name))
+        return [...prev, ...vids.filter(f => !existing.has(f.name))]
+      })
       setError('')
     }
-  }
-
-  function switchMode(mode) {
-    setUploadMode(mode)
-    setFiles([])
-    setVideoFile(null)
-    setError('')
   }
 
   async function handleSubmit() {
@@ -45,38 +47,20 @@ export default function Register() {
       setError("Please enter your pet's name")
       return
     }
+    if (files.length === 0 && videoFiles.length === 0) {
+      setError('Please upload at least some photos or a video')
+      return
+    }
+    if (files.length > 0 && files.length < 5) {
+      setError('Please upload at least 5 photos, or add a video too')
+      return
+    }
 
     try {
       let sid = localStorage.getItem('session_id')
 
-      if (uploadMode === 'video') {
-        if (!videoFile) {
-          setError('Please select a video file')
-          return
-        }
-
-        setStep('uploading')
-        setMessage('Uploading video and extracting frames...')
-
-        const formData = new FormData()
-        formData.append('file', videoFile)
-
-        const sidParam = sid ? `?session_id=${encodeURIComponent(sid)}` : ''
-        const uploadRes = await fetch(`http://localhost:8000/api/upload-profile-video${sidParam}`, {
-          method: 'POST',
-          body: formData
-        })
-        const uploadData = await uploadRes.json()
-        if (!uploadRes.ok) throw new Error(uploadData.detail)
-
-        sid = uploadData.session_id
-
-      } else {
-        if (files.length < 10) {
-          setError('Please upload at least 10 photos for better accuracy')
-          return
-        }
-
+      // Upload photos first (if any)
+      if (files.length > 0) {
         setStep('uploading')
         setMessage('Uploading photos...')
 
@@ -90,23 +74,42 @@ export default function Register() {
         })
         const uploadData = await uploadRes.json()
         if (!uploadRes.ok) throw new Error(uploadData.detail)
+        sid = uploadData.session_id
+      }
 
+      // Upload each video in sequence, reusing the same session
+      for (let i = 0; i < videoFiles.length; i++) {
+        setStep('uploading')
+        setMessage(
+          videoFiles.length > 1
+            ? `Extracting frames from video ${i + 1} of ${videoFiles.length}...`
+            : 'Uploading video and extracting frames...'
+        )
+
+        const formData = new FormData()
+        formData.append('file', videoFiles[i])
+
+        const sidParam = sid ? `?session_id=${encodeURIComponent(sid)}` : ''
+        const uploadRes = await fetch(`http://localhost:8000/api/upload-profile-video${sidParam}`, {
+          method: 'POST',
+          body: formData
+        })
+        const uploadData = await uploadRes.json()
+        if (!uploadRes.ok) throw new Error(uploadData.detail)
         sid = uploadData.session_id
       }
 
       localStorage.setItem('session_id', sid)
 
-      // Step 2 — crop
+      // Crop
       setStep('cropping')
       setMessage('Finding your pet in each photo...')
 
-      const cropRes = await fetch(`http://localhost:8000/api/crop-photos/${sid}`, {
-        method: 'POST'
-      })
+      const cropRes = await fetch(`http://localhost:8000/api/crop-photos/${sid}`, { method: 'POST' })
       const cropData = await cropRes.json()
       if (!cropRes.ok) throw new Error(cropData.detail)
 
-      // Step 3 — build profile
+      // Build profile
       setStep('building')
       setMessage(`Building ${petName}'s unique profile...`)
 
@@ -126,6 +129,8 @@ export default function Register() {
     }
   }
 
+  const hasContent = files.length > 0 || videoFiles.length > 0
+
   return (
     <main className="main">
 
@@ -140,7 +145,7 @@ export default function Register() {
       <div className="page-container">
         <div className="page-header">
           <h1 className="page-title">Register your pet</h1>
-          <p className="page-sub">Upload photos or a video of your pet so our AI can learn to recognize them</p>
+          <p className="page-sub">Upload photos and/or videos — the more the better</p>
         </div>
 
         {/* Progress steps */}
@@ -174,114 +179,99 @@ export default function Register() {
               />
             </div>
 
-            {/* Mode toggle */}
-            <div className="mode-toggle">
-              <button
-                className={`mode-btn ${uploadMode === 'photos' ? 'active' : ''}`}
-                onClick={() => switchMode('photos')}
-              >
-                📸 Photos
-              </button>
-              <button
-                className={`mode-btn ${uploadMode === 'video' ? 'active' : ''}`}
-                onClick={() => switchMode('video')}
-              >
-                🎥 Video
-              </button>
+            {/* Photos dropzone */}
+            <div
+              className="dropzone"
+              onDrop={handlePhotoDrop}
+              onDragOver={e => e.preventDefault()}
+              onClick={() => document.getElementById('file-input').click()}
+            >
+              <div className="dropzone-icon">📸</div>
+              <p className="dropzone-title">Drop photos here or click to browse</p>
+              <p className="dropzone-sub">20+ photos recommended — different angles, lighting, distances</p>
+              {files.length > 0 && (
+                <div className="file-count">{files.length} photo{files.length !== 1 ? 's' : ''} selected</div>
+              )}
+              <input
+                id="file-input"
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+              />
             </div>
 
-            {uploadMode === 'photos' ? (
-              <>
-                <div
-                  className="dropzone"
-                  onDrop={handleDrop}
-                  onDragOver={e => e.preventDefault()}
-                  onClick={() => document.getElementById('file-input').click()}
-                >
-                  <div className="dropzone-icon">📸</div>
-                  <p className="dropzone-title">Drop photos here or click to browse</p>
-                  <p className="dropzone-sub">Upload 20+ photos for best results — different angles, lighting, distances</p>
-                  {files.length > 0 && (
-                    <div className="file-count">{files.length} photos selected</div>
-                  )}
-                  <input
-                    id="file-input"
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    style={{ display: 'none' }}
-                  />
-                </div>
-
-                {files.length > 0 && (
-                  <div className="preview-grid">
-                    {files.slice(0, 8).map((f, i) => (
-                      <div key={i} className="preview-item">
-                        <img src={URL.createObjectURL(f)} alt={`preview ${i}`} />
-                      </div>
-                    ))}
-                    {files.length > 8 && (
-                      <div className="preview-more">+{files.length - 8} more</div>
-                    )}
+            {files.length > 0 && (
+              <div className="preview-grid">
+                {files.slice(0, 8).map((f, i) => (
+                  <div key={i} className="preview-item">
+                    <img src={URL.createObjectURL(f)} alt={`preview ${i}`} />
                   </div>
+                ))}
+                {files.length > 8 && (
+                  <div className="preview-more">+{files.length - 8} more</div>
                 )}
-              </>
-            ) : (
-              <div
-                className="dropzone"
-                onDrop={handleDrop}
-                onDragOver={e => e.preventDefault()}
-                onClick={() => document.getElementById('video-input').click()}
-              >
-                <div className="dropzone-icon">🎥</div>
-                <p className="dropzone-title">Drop a video here or click to browse</p>
-                <p className="dropzone-sub">Supports MP4, MOV, AVI, MKV — frames will be extracted automatically</p>
-                {videoFile && (
-                  <div className="file-count">{videoFile.name} ({(videoFile.size / 1024 / 1024).toFixed(1)} MB)</div>
-                )}
-                <input
-                  id="video-input"
-                  type="file"
-                  accept="video/*"
-                  onChange={handleVideoChange}
-                  style={{ display: 'none' }}
-                />
+              </div>
+            )}
+
+            {/* Videos dropzone */}
+            <div
+              className="dropzone"
+              style={{ marginTop: '1rem' }}
+              onDrop={handleVideoDrop}
+              onDragOver={e => e.preventDefault()}
+              onClick={() => document.getElementById('video-input').click()}
+            >
+              <div className="dropzone-icon">🎥</div>
+              <p className="dropzone-title">Drop videos here or click to browse</p>
+              <p className="dropzone-sub">Optional — supports MP4, MOV, AVI, MKV. Multiple videos allowed.</p>
+              {videoFiles.length > 0 && (
+                <div className="file-count">{videoFiles.length} video{videoFiles.length !== 1 ? 's' : ''} selected</div>
+              )}
+              <input
+                id="video-input"
+                type="file"
+                accept="video/*"
+                multiple
+                onChange={handleVideoChange}
+                style={{ display: 'none' }}
+              />
+            </div>
+
+            {videoFiles.length > 0 && (
+              <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                {videoFiles.map((f, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    <span>🎥 {f.name} ({(f.size / 1024 / 1024).toFixed(1)} MB)</span>
+                    <button
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '1rem', padding: '0 0.25rem' }}
+                      onClick={() => setVideoFiles(prev => prev.filter((_, j) => j !== i))}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
 
             {error && <div className="error-box">{error}</div>}
 
             <div className="tips-box">
-              {uploadMode === 'photos' ? (
-                <>
-                  <h3>Tips for best results</h3>
-                  <ul>
-                    <li>📷 Use at least 20 photos</li>
-                    <li>🔄 Different angles — front, side, back</li>
-                    <li>💡 Different lighting conditions</li>
-                    <li>📏 Different distances — close up and far away</li>
-                    <li>🚫 Avoid blurry or very dark photos</li>
-                  </ul>
-                </>
-              ) : (
-                <>
-                  <h3>Tips for best results</h3>
-                  <ul>
-                    <li>🎥 A 30–60 second clip works great</li>
-                    <li>🔄 Walk around your pet to capture different angles</li>
-                    <li>💡 Film in good lighting</li>
-                    <li>📏 Include close-up and wide shots</li>
-                    <li>🚫 Avoid shaky or very fast movement</li>
-                  </ul>
-                </>
-              )}
+              <h3>Tips for best results</h3>
+              <ul>
+                <li>📷 Use at least 20 photos or a 30–60 second video</li>
+                <li>🔄 Capture different angles — front, side, back</li>
+                <li>💡 Include different lighting conditions</li>
+                <li>📏 Mix close-up and wide shots</li>
+                <li>🚫 Avoid blurry or very dark images</li>
+              </ul>
             </div>
 
             <button
               className="btn-primary btn-large btn-full"
               onClick={handleSubmit}
-              disabled={uploadMode === 'photos' ? files.length === 0 : !videoFile}
+              disabled={!hasContent}
             >
               Register My Pet →
             </button>
@@ -294,8 +284,9 @@ export default function Register() {
             <div className="spinner"/>
             <h2>{message}</h2>
             <p className="processing-sub">
-              {step === 'uploading' && uploadMode === 'video' && 'Extracting 1 frame per second from your video...'}
-              {step === 'uploading' && uploadMode === 'photos' && `Uploading ${files.length} photos...`}
+              {step === 'uploading' && videoFiles.length > 0 && files.length > 0 && 'Uploading photos then extracting video frames...'}
+              {step === 'uploading' && videoFiles.length > 0 && files.length === 0 && 'Extracting 1 frame per second from each video...'}
+              {step === 'uploading' && videoFiles.length === 0 && `Uploading ${files.length} photos...`}
               {step === 'cropping' && 'YOLO AI is finding your pet in each photo and cropping them out...'}
               {step === 'building' && 'DINO AI is building a unique fingerprint for your pet...'}
             </p>
@@ -317,7 +308,7 @@ export default function Register() {
               </Link>
               <button
                 className="btn-secondary"
-                onClick={() => { setStep('upload'); setFiles([]); setVideoFile(null); setMessage(''); setPetName('') }}
+                onClick={() => { setStep('upload'); setFiles([]); setVideoFiles([]); setMessage(''); setPetName('') }}
               >
                 Register another pet
               </button>
