@@ -25,6 +25,36 @@ print("DINO loaded!")
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 PET_NAME_RE = re.compile(r"^[a-zA-Z0-9 \-]{1,50}$")
 
+SESSION_TTL_SECONDS = 30 * 60  # delete sessions idle for 30+ minutes
+HEARTBEAT_INTERVAL = 60        # check for expired sessions every 60 seconds
+
+_session_last_seen: dict[str, float] = {}
+_session_lock = threading.Lock()
+
+
+def _touch_session(session_id: str):
+    with _session_lock:
+        _session_last_seen[session_id] = time.time()
+
+
+def _cleanup_expired_sessions():
+    while True:
+        time.sleep(HEARTBEAT_INTERVAL)
+        now = time.time()
+        with _session_lock:
+            expired = [
+                sid for sid, last in _session_last_seen.items()
+                if now - last > SESSION_TTL_SECONDS
+            ]
+            for sid in expired:
+                del _session_last_seen[sid]
+        for sid in expired:
+            shutil.rmtree(f"data/profiles/{sid}", ignore_errors=True)
+            shutil.rmtree(f"data/sessions/{sid}", ignore_errors=True)
+
+
+threading.Thread(target=_cleanup_expired_sessions, daemon=True).start()
+
 def validate_session_id(session_id: str):
     if not UUID_RE.match(session_id):
         raise HTTPException(status_code=400, detail="Invalid session ID")
@@ -302,11 +332,22 @@ def delete_pet(session_id: str, pet_slug: str):
     return {"status": "success", "message": f"Deleted profile for {pet_slug}"}
 
 # ─────────────────────────────────────────
+# Heartbeat — keeps session alive
+# ─────────────────────────────────────────
+@app.post("/api/session/{session_id}/heartbeat")
+def heartbeat(session_id: str):
+    validate_session_id(session_id)
+    _touch_session(session_id)
+    return {"status": "ok"}
+
+# ─────────────────────────────────────────
 # End session — deletes all profiles and session data
 # ─────────────────────────────────────────
 @app.delete("/api/session/{session_id}")
 def end_session(session_id: str):
     validate_session_id(session_id)
+    with _session_lock:
+        _session_last_seen.pop(session_id, None)
     shutil.rmtree(f"data/profiles/{session_id}", ignore_errors=True)
     shutil.rmtree(f"data/sessions/{session_id}", ignore_errors=True)
     return {"status": "success", "message": "Session ended and all data deleted"}
